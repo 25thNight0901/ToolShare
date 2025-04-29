@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:toolshare/screens/addProduct.dart';
 import 'package:toolshare/screens/home.dart';
 import 'package:toolshare/screens/login.dart';
 import 'package:toolshare/screens/register.dart';
@@ -29,6 +30,7 @@ class MyApp extends StatelessWidget {
         '/register': (context) => const Register(),
         '/login': (context) => const Login(),
         '/dashboard': (context) => const Dashboard(),
+        '/addProduct': (context) => const AddProduct(),
       },
     );
   }

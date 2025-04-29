@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:toolshare/screens/addProduct.dart';
 
 class Dashboard extends StatelessWidget {
   const Dashboard({super.key});
+
+  void _openAddProductForm(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const AddProduct(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,16 +28,16 @@ class Dashboard extends StatelessWidget {
                   onPressed: () {},
                   icon: const Icon(Icons.home),
                   iconSize: 40,
-                  tooltip: 'Add product',
+                  tooltip: 'Go to Home',
                 ),
                 IconButton(
                   onPressed: () {},
                   icon: const Icon(Icons.search),
                   iconSize: 40,
-                  tooltip: 'Add product',
+                  tooltip: 'Search product',
                 ),
                 IconButton(
-                  onPressed: () {},
+                  onPressed: () => _openAddProductForm(context),
                   icon: const Icon(Icons.add_circle_outline),
                   iconSize: 40,
                   tooltip: 'Add product',
@@ -37,7 +46,7 @@ class Dashboard extends StatelessWidget {
                   onPressed: () {},
                   icon: const Icon(Icons.person),
                   iconSize: 40,
-                  tooltip: 'Add product',
+                  tooltip: 'User profile',
                 ),
               ],
             ),
