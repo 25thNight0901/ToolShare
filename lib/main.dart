@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:toolshare/screens/addProduct.dart';
+import 'package:toolshare/screens/dasboard.dart';
 import 'package:toolshare/screens/home.dart';
 import 'package:toolshare/screens/login.dart';
-import 'package:toolshare/screens/register.dart';
-import 'package:toolshare/screens/dashboard.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -27,10 +25,9 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => const Home(),
-        '/register': (context) => const Register(),
+        '/home': (context) => const Home(),
         '/login': (context) => const Login(),
-        '/dashboard': (context) => const Dashboard(),
-        '/addProduct': (context) => const AddProduct(),
+        '/dashboard': (context) => const Dasboard(),
       },
     );
   }
