@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "591867621340",
+    "project_id": "toolshare-58445",
+    "storage_bucket": "toolshare-58445.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:591867621340:android:35cf2097e8bc249585e919",
+        "android_client_info": {
+          "package_name": "com.example.toolshare"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCx72Yy5Ob2-9RYbUr0jqoaho0wv5VNHbs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
