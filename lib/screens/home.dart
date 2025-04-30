@@ -23,14 +23,10 @@ class _HomeState extends State<Home> {
       if (userCredential.user != null) {
         Navigator.pushReplacementNamed(context, '/dashboard');
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User registered and logged in!')),
-      );
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error: ${e.message}.')));
+      ).showSnackBar(SnackBar(content: Text('${e.message}.')));
     }
   }
 
@@ -39,7 +35,10 @@ class _HomeState extends State<Home> {
     double screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
+      backgroundColor: Color.fromRGBO(288, 240, 50, 140),
       appBar: AppBar(
+        backgroundColor: Color.fromRGBO(288, 240, 50, 0),
+        elevation: 0,
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -47,18 +46,22 @@ class _HomeState extends State<Home> {
           ),
         ],
       ),
-      body: Center(
+      body: Container(
+        margin: const EdgeInsets.only(top: 400),
+        padding: EdgeInsets.only(top: 40),
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(20),
+            topLeft: Radius.circular(20),
+          ),
+        ),
         child: Column(
           children: [
-            SizedBox(height: 180),
             Text(
               'Welcome to ToolShare!',
               style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 40),
-            Text(
-              'Sign up',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
             ),
             SizedBox(height: 20),
             ConstrainedBox(
@@ -102,14 +105,20 @@ class _HomeState extends State<Home> {
               ),
               // input velden
             ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/login');
-              },
-              child: const Text(
-                'Login',
-                style: TextStyle(color: Colors.black, fontSize: 20),
+            const SizedBox(height: 10),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.pushNamed(context, '/login'); // or your route
+                },
+                child: Text(
+                  "Already have an account? Sign in.",
+                  style: TextStyle(
+                    color: Colors.blue,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
               ),
             ),
           ],

@@ -23,14 +23,10 @@ class _LoginState extends State<Login> {
       if (userCredential.user != null) {
         Navigator.pushReplacementNamed(context, '/dashboard');
       }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('User logged in!')));
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error: ${e.message}.')));
+      ).showSnackBar(SnackBar(content: Text('${e.message}.')));
     }
   }
 
@@ -39,7 +35,10 @@ class _LoginState extends State<Login> {
     double screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
+      backgroundColor: Color.fromRGBO(288, 240, 50, 140),
       appBar: AppBar(
+        backgroundColor: Color.fromRGBO(288, 240, 50, 0),
+        elevation: 0,
         leading: BackButton(onPressed: () => Navigator.pop(context)),
         actions: [
           Padding(
@@ -48,18 +47,22 @@ class _LoginState extends State<Login> {
           ),
         ],
       ),
-      body: Center(
+      body: Container(
+        margin: const EdgeInsets.only(top: 400),
+        padding: const EdgeInsets.only(top: 40),
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(20),
+            topLeft: Radius.circular(20),
+          ),
+        ),
         child: Column(
           children: [
-            SizedBox(height: 180),
             Text(
-              'Welcome to ToolShare!',
+              'Welcome back!',
               style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 40),
-            Text(
-              'Sign up',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
             ),
             SizedBox(height: 20),
             ConstrainedBox(
