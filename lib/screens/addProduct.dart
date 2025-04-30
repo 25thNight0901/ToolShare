@@ -27,6 +27,18 @@ class _AddProductState extends State<AddProduct> {
   }
 
   void _submit() {
+    final description = _descriptionController.text.trim();
+    final priceText = _priceController.text.trim();
+    final price = double.tryParse(priceText);
+
+    if (description.isEmpty || price == null || _image == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill in all the fields and add an image.'),
+        ),
+      );
+      return;
+    }
     print('submitted');
     Navigator.pop(context);
   }
@@ -48,11 +60,6 @@ class _AddProductState extends State<AddProduct> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
-            TextField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(labelText: 'Description'),
-            ),
-            const SizedBox(height: 10),
             GestureDetector(
               onTap: _pickImage,
               child: Container(
@@ -64,6 +71,11 @@ class _AddProductState extends State<AddProduct> {
                         ? Image.file(_image!, fit: BoxFit.cover)
                         : const Center(child: Text('Tap to add image')),
               ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(labelText: 'Description'),
             ),
             const SizedBox(height: 10),
             TextField(
