@@ -31,12 +31,15 @@ class _AddProductState extends State<AddProduct> {
     final priceText = _priceController.text.trim();
     final price = double.tryParse(priceText);
 
-    if (description.isEmpty || price == null || _image == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all the fields and add an image.'),
-        ),
-      );
+    if (description.isEmpty || price == null || price <= 0 || _image == null) {
+      Navigator.of(context).pop();
+      Future.delayed(const Duration(milliseconds: 100), () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please fill in all the fields and add an image.'),
+          ),
+        );
+      });
       return;
     }
     print('submitted');
@@ -45,61 +48,93 @@ class _AddProductState extends State<AddProduct> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-        left: 20,
-        right: 20,
-        top: 20,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            const Text(
-              'Add Product',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                height: 150,
-                width: double.infinity,
-                color: Colors.grey,
-                child:
-                    _image != null
-                        ? Image.file(_image!, fit: BoxFit.cover)
-                        : const Center(child: Text('Tap to add image')),
+    String? _selectedCategory;
+    final List<String> _categories = [
+      'Kitchen Appliances',
+      'Cleaning Aplliances',
+      'Tools & DIY',
+      'Laundry & Ironing',
+      'Garden Equipment',
+      'Heating & Cooling',
+      'Other',
+    ];
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Add Product',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(labelText: 'Description'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _priceController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Price (€)'),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Available'),
-                Switch(
-                  value: _isAvailable,
-                  onChanged: (val) => setState(() => _isAvailable = val),
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: _pickImage,
+                child: CircleAvatar(
+                  radius: 60,
+                  backgroundColor: Colors.grey[300],
+                  backgroundImage: _image != null ? FileImage(_image!) : null,
+                  child:
+                      _image == null
+                          ? const Icon(
+                            Icons.camera_alt,
+                            size: 30,
+                            color: Colors.black54,
+                          )
+                          : null,
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _submit,
-              child: const Text('Save Product'),
-            ),
-          ],
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  filled: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _priceController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Price (€)',
+                  filled: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Category',
+                  filled: true,
+                  border: OutlineInputBorder(),
+                ),
+                value: _selectedCategory,
+                items:
+                    _categories.map((category) {
+                      return DropdownMenuItem(
+                        value: category,
+                        child: Text(category),
+                      );
+                    }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedCategory = value!;
+                  });
+                },
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _submit,
+                child: const Text('Save Product'),
+              ),
+            ],
+          ),
         ),
       ),
     );
