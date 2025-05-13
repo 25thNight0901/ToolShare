@@ -1,14 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class Home extends StatefulWidget {
-  const Home({super.key});
+class Register extends StatefulWidget {
+  const Register({super.key});
 
   @override
-  State<Home> createState() => _HomeState();
+  State<Register> createState() => _RegisterState();
 }
 
-class _HomeState extends State<Home> with WidgetsBindingObserver {
+class _RegisterState extends State<Register> with WidgetsBindingObserver {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
