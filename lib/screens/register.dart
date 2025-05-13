@@ -1,14 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class Login extends StatefulWidget {
-  const Login({super.key});
+class Register extends StatefulWidget {
+  const Register({super.key});
 
   @override
-  State<Login> createState() => _LoginState();
+  State<Register> createState() => _RegisterState();
 }
 
-class _LoginState extends State<Login> with WidgetsBindingObserver {
+class _RegisterState extends State<Register> with WidgetsBindingObserver {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -42,13 +42,13 @@ class _LoginState extends State<Login> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> _loginUser() async {
+  Future<void> _registerUser() async {
     try {
       String email = _emailController.text;
       String password = _passwordController.text;
 
       UserCredential userCredential = await FirebaseAuth.instance
-          .signInWithEmailAndPassword(email: email, password: password);
+          .createUserWithEmailAndPassword(email: email, password: password);
 
       if (userCredential.user != null) {
         Navigator.pushReplacementNamed(context, '/dashboard');
@@ -65,11 +65,11 @@ class _LoginState extends State<Login> with WidgetsBindingObserver {
     double screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: Color.fromRGBO(52, 216, 235, 1),
       appBar: AppBar(
         backgroundColor: Color.fromRGBO(52, 216, 235, 1),
         elevation: 0,
-        leading: BackButton(onPressed: () => Navigator.pop(context)),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -97,14 +97,16 @@ class _LoginState extends State<Login> with WidgetsBindingObserver {
                   ),
                   child: Column(
                     children: [
+                      // Title Text
                       Text(
-                        'Welcome back!',
+                        'Welcome to ToolShare!',
                         style: TextStyle(
                           fontSize: 30,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       SizedBox(height: 20),
+                      // Email Field
                       ConstrainedBox(
                         constraints: BoxConstraints(maxWidth: 500),
                         child: SizedBox(
@@ -120,6 +122,7 @@ class _LoginState extends State<Login> with WidgetsBindingObserver {
                         ),
                       ),
                       SizedBox(height: 10),
+                      // Password Field
                       ConstrainedBox(
                         constraints: BoxConstraints(maxWidth: 500),
                         child: SizedBox(
@@ -135,16 +138,35 @@ class _LoginState extends State<Login> with WidgetsBindingObserver {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20),
+                      // Sign Up Button
                       ElevatedButton(
                         onPressed: () {
-                          _loginUser();
+                          _registerUser();
                         },
                         child: const Text(
-                          'Login',
+                          'Sign up',
                           style: TextStyle(color: Colors.black, fontSize: 20),
                         ),
                       ),
+                      const SizedBox(height: 10),
+                      // Navigation to Login
+                      MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.pushNamed(context, '/login');
+                          },
+                          child: Text(
+                            "Already have an account? Sign in.",
+                            style: TextStyle(
+                              color: Colors.blue,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),

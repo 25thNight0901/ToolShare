@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:toolshare/screens/dashboard.dart';
-import 'package:toolshare/screens/home.dart';
+import 'package:toolshare/screens/register.dart';
 import 'package:toolshare/screens/login.dart';
-import 'package:toolshare/screens/addProduct.dart';
+import 'package:toolshare/screens/splash.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -23,13 +23,11 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueAccent),
       ),
-      initialRoute: '/',
+      home: const Splash(),
       routes: {
-        '/': (context) => const Home(),
-        '/home': (context) => const Home(),
+        '/register': (context) => const Register(),
         '/login': (context) => const Login(),
         '/dashboard': (context) => const Dashboard(),
-        '/addProduct': (context) => const AddProduct(),
       },
     );
   }
