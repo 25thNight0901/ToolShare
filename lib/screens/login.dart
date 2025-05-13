@@ -8,9 +8,39 @@ class Login extends StatefulWidget {
   State<Login> createState() => _LoginState();
 }
 
-class _LoginState extends State<Login> {
+class _LoginState extends State<Login> with WidgetsBindingObserver {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _emailController.dispose();
+    _passwordController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+      if (bottomInset == 0) {
+        _scrollController.animateTo(
+          0,
+          duration: Duration(milliseconds: 500),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
 
   Future<void> _loginUser() async {
     try {
@@ -35,9 +65,9 @@ class _LoginState extends State<Login> {
     double screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      backgroundColor: Color.fromRGBO(288, 240, 50, 140),
+      backgroundColor: Color.fromRGBO(52, 216, 235, 1),
       appBar: AppBar(
-        backgroundColor: Color.fromRGBO(288, 240, 50, 0),
+        backgroundColor: Color.fromRGBO(52, 216, 235, 1),
         elevation: 0,
         leading: BackButton(onPressed: () => Navigator.pop(context)),
         actions: [
@@ -47,66 +77,81 @@ class _LoginState extends State<Login> {
           ),
         ],
       ),
-      body: Container(
-        margin: const EdgeInsets.only(top: 400),
-        padding: const EdgeInsets.only(top: 40),
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topRight: Radius.circular(20),
-            topLeft: Radius.circular(20),
-          ),
-        ),
-        child: Column(
-          children: [
-            Text(
-              'Welcome back!',
-              style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 20),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: 500),
-              child: SizedBox(
-                width: screenWidth * 0.7,
-                child: TextField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    prefixIcon: Icon(Icons.email_outlined),
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            controller: _scrollController,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 400),
+                  padding: const EdgeInsets.only(top: 40),
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topRight: Radius.circular(20),
+                      topLeft: Radius.circular(20),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Welcome back!',
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: 500),
+                        child: SizedBox(
+                          width: screenWidth * 0.7,
+                          child: TextField(
+                            controller: _emailController,
+                            decoration: InputDecoration(
+                              prefixIcon: Icon(Icons.email_outlined),
+                              labelText: 'Email',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: 500),
+                        child: SizedBox(
+                          width: screenWidth * 0.7,
+                          child: TextField(
+                            obscureText: true,
+                            controller: _passwordController,
+                            decoration: InputDecoration(
+                              prefixIcon: Icon(Icons.password),
+                              labelText: 'Password',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: () {
+                          _loginUser();
+                        },
+                        child: const Text(
+                          'Login',
+                          style: TextStyle(color: Colors.black, fontSize: 20),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-            SizedBox(height: 10),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: 500),
-              child: SizedBox(
-                width: screenWidth * 0.7,
-                child: TextField(
-                  obscureText: true,
-                  controller: _passwordController,
-                  decoration: InputDecoration(
-                    prefixIcon: Icon(Icons.password),
-                    labelText: 'Password',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                _loginUser();
-              },
-              child: const Text(
-                'Login',
-                style: TextStyle(color: Colors.black, fontSize: 20),
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
