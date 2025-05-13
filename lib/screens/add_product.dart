@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AddProduct extends StatefulWidget {
   const AddProduct({super.key});
@@ -28,6 +29,8 @@ class _AddProductState extends State<AddProduct> {
   String? _selectedCategory;
   double? _latitude;
   double? _longitude;
+  bool _isAvailable = true;
+  bool _isLoading = false;
 
   final List<String> _categories = [
     'Kitchen Appliances',
@@ -92,6 +95,10 @@ class _AddProductState extends State<AddProduct> {
   }
 
   Future<void> _submit() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     final productTitle = _productTitleController.text.trim();
     final description = _descriptionController.text.trim();
     final priceText = _priceController.text.trim();
@@ -131,6 +138,10 @@ class _AddProductState extends State<AddProduct> {
         _showErrorSnackBar(e.toString());
       }
     }
+
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   bool _isFormValid(String title, String description, double? price) {
@@ -174,6 +185,8 @@ class _AddProductState extends State<AddProduct> {
     double? price,
     String imageUrl,
   ) async {
+    final user = FirebaseAuth.instance.currentUser;
+
     await FirebaseFirestore.instance.collection('products').add({
       'title': title,
       'description': description,
@@ -183,14 +196,27 @@ class _AddProductState extends State<AddProduct> {
       'latitude': _latitude,
       'longitude': _longitude,
       'createdAt': Timestamp.now(),
+      'isAvailable': _isAvailable,
+      "userEmail": user?.email,
     });
   }
 
   void _showErrorSnackBar(String message) {
-    Navigator.of(context).pop();
+    setState(() {
+      _isLoading = false;
+    });
+
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+
+    if (context.mounted) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/dashboard',
+        (route) => false,
+      );
+    }
   }
 
   @override
@@ -234,9 +260,37 @@ class _AddProductState extends State<AddProduct> {
                   const SizedBox(height: 20),
                   _buildAddressFields(screenWidth),
                   const SizedBox(height: 20),
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Checkbox(
+                          value: _isAvailable,
+                          onChanged: (value) {
+                            setState(() {
+                              _isAvailable = value ?? true;
+                            });
+                          },
+                        ),
+                        const Text('Available for rental'),
+                      ],
+                    ),
+                  ),
                   ElevatedButton(
-                    onPressed: _submit,
-                    child: const Text('Save Product'),
+                    onPressed: _isLoading ? null : _submit,
+                    child:
+                        _isLoading
+                            ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                            : const Text('Save Product'),
                   ),
                 ],
               ),
@@ -329,9 +383,13 @@ class _AddProductState extends State<AddProduct> {
             labelStyle: TextStyle(color: Colors.grey),
             filled: true,
             fillColor: Colors.white,
-            border: OutlineInputBorder(
+            enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8.0),
-              borderSide: BorderSide(color: Colors.grey, width: 1),
+              borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8.0),
+              borderSide: const BorderSide(color: Colors.blue, width: 2),
             ),
           ),
           value: _selectedCategory,
