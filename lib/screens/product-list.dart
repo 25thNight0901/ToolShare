@@ -80,14 +80,12 @@ class _ProductListState extends State<ProductList> {
 
   bool _isVisible(Map<String, dynamic> d) {
     final now = DateTime.now();
-    // 1) availability window
     final fromTs = d['availableFrom'] as Timestamp?;
     final toTs = d['availableTo'] as Timestamp?;
     if (fromTs != null && toTs != null) {
       final from = fromTs.toDate(), to = toTs.toDate();
       if (now.isBefore(from) || now.isAfter(to)) return false;
     }
-    // 2) reservation window
     final rFromTs = d['reservedFrom'] as Timestamp?;
     final rToTs = d['reservedTo'] as Timestamp?;
     if (rFromTs != null && rToTs != null) {
@@ -135,6 +133,7 @@ class _ProductListState extends State<ProductList> {
                   children: [
                     const Text('Max Distance:'),
                     Slider(
+                      activeColor: Colors.blueAccent,
                       value: _selectedRadius,
                       min: 0,
                       max: 100,
