@@ -35,20 +35,14 @@ class _ProductListState extends State<ProductList> {
   }
 
   Future<void> _getCurrentLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.whileInUse ||
-        permission == LocationPermission.always) {
-      Position position = await Geolocator.getCurrentPosition();
-      setState(() {
-        _currentPosition = position;
-      });
+    if (!await Geolocator.isLocationServiceEnabled()) return;
+    var perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied)
+      perm = await Geolocator.requestPermission();
+    if (perm == LocationPermission.whileInUse ||
+        perm == LocationPermission.always) {
+      _currentPosition = await Geolocator.getCurrentPosition();
+      setState(() {});
     }
   }
 
@@ -58,51 +52,54 @@ class _ProductListState extends State<ProductList> {
     double lat2,
     double lon2,
   ) {
-    const earthRadius = 6371;
-    final dLat = _degreesToRadians(lat2 - lat1);
-    final dLon = _degreesToRadians(lon2 - lon1);
-
+    const R = 6371;
+    final dLat = _deg2rad(lat2 - lat1), dLon = _deg2rad(lon2 - lon1);
     final a =
         sin(dLat / 2) * sin(dLat / 2) +
-        cos(_degreesToRadians(lat1)) *
-            cos(_degreesToRadians(lat2)) *
+        cos(_deg2rad(lat1)) *
+            cos(_deg2rad(lat2)) *
             sin(dLon / 2) *
             sin(dLon / 2);
-
-    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    return earthRadius * c;
+    return R * 2 * atan2(sqrt(a), sqrt(1 - a));
   }
 
-  double _degreesToRadians(double deg) => deg * (pi / 180);
+  double _deg2rad(double deg) => deg * pi / 180;
 
-  bool _isWithinRadius(Map<String, dynamic> productData) {
-    if (_currentPosition == null ||
-        productData['latitude'] == null ||
-        productData['longitude'] == null)
-      return false;
-
-    final distance = _calculateDistanceKm(
-      _currentPosition!.latitude,
-      _currentPosition!.longitude,
-      productData['latitude'],
-      productData['longitude'],
-    );
-
-    return distance <= _selectedRadius;
-  }
-
-  double? _getDistanceFromUser(Map<String, dynamic> productData) {
-    if (_currentPosition == null ||
-        productData['latitude'] == null ||
-        productData['longitude'] == null)
-      return null;
-
+  bool _isWithinRadius(Map<String, dynamic> d) {
+    if (_currentPosition == null) return false;
+    final lat = d['latitude'], lon = d['longitude'];
+    if (lat == null || lon == null) return false;
     return _calculateDistanceKm(
-      _currentPosition!.latitude,
-      _currentPosition!.longitude,
-      productData['latitude'],
-      productData['longitude'],
-    );
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          lat,
+          lon,
+        ) <=
+        _selectedRadius;
+  }
+
+  bool _isVisible(Map<String, dynamic> d) {
+    final now = DateTime.now();
+    // 1) availability window
+    final fromTs = d['availableFrom'] as Timestamp?;
+    final toTs = d['availableTo'] as Timestamp?;
+    if (fromTs != null && toTs != null) {
+      final from = fromTs.toDate(), to = toTs.toDate();
+      if (now.isBefore(from) || now.isAfter(to)) return false;
+    }
+    // 2) reservation window
+    final rFromTs = d['reservedFrom'] as Timestamp?;
+    final rToTs = d['reservedTo'] as Timestamp?;
+    if (rFromTs != null && rToTs != null) {
+      final rFrom = rFromTs.toDate(), rTo = rToTs.toDate();
+      if (!now.isBefore(rFrom) && !now.isAfter(rTo)) return false;
+    }
+
+    if (d['neverAvailable'] == true) {
+      return false;
+    }
+
+    return true;
   }
 
   @override
@@ -145,15 +142,14 @@ class _ProductListState extends State<ProductList> {
                       label: '${_selectedRadius.toStringAsFixed(0)} km',
                       onChanged:
                           _limitByDistance
-                              ? (value) =>
-                                  setState(() => _selectedRadius = value)
+                              ? (v) => setState(() => _selectedRadius = v)
                               : null,
                     ),
                     Checkbox(
                       value: !_limitByDistance,
-                      onChanged: (value) {
+                      onChanged: (v) {
                         setState(() {
-                          _limitByDistance = !(value ?? false);
+                          _limitByDistance = !(v ?? false);
                         });
                       },
                     ),
@@ -170,158 +166,117 @@ class _ProductListState extends State<ProductList> {
                       .collection('products')
                       .orderBy('createdAt', descending: true)
                       .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return const Center(child: Text('Something went wrong'));
-                }
-                if (!snapshot.hasData) {
+              builder: (ctx, snap) {
+                if (snap.hasError) return const Center(child: Text('Error'));
+                if (!snap.hasData)
                   return const Center(child: CircularProgressIndicator());
-                }
 
                 var docs =
-                    snapshot.data!.docs.where((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      return data['isAvailable'] == true;
+                    snap.data!.docs.where((doc) {
+                      final d = doc.data() as Map<String, dynamic>;
+                      if (!_isVisible(d)) return false;
+                      if (_selectedCategory != null &&
+                          d['category'] != _selectedCategory)
+                        return false;
+                      if (_currentPosition != null && _limitByDistance)
+                        if (!_isWithinRadius(d)) return false;
+                      return true;
                     }).toList();
 
-                // Filter by category
-                if (_selectedCategory != null) {
-                  docs =
-                      docs
-                          .where((doc) => doc['category'] == _selectedCategory)
-                          .toList();
-                }
-
-                // Filter by distance only if toggle is ON
-                if (_currentPosition != null && _limitByDistance) {
-                  docs =
-                      docs
-                          .where(
-                            (doc) => _isWithinRadius(
-                              doc.data() as Map<String, dynamic>,
-                            ),
-                          )
-                          .toList();
-                }
-
-                if (docs.isEmpty) {
+                if (docs.isEmpty)
                   return const Center(child: Text('No products found.'));
-                }
 
-                return Padding(
+                return GridView.builder(
                   padding: const EdgeInsets.all(12),
-                  child: GridView.builder(
-                    itemCount: docs.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 3 / 4,
-                        ),
-                    itemBuilder: (context, index) {
-                      final product = docs[index];
-                      final data = product.data() as Map<String, dynamic>;
-                      final distance = _getDistanceFromUser(data);
-
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 3 / 4,
+                  ),
+                  itemCount: docs.length,
+                  itemBuilder: (ctx, i) {
+                    final d = docs[i].data() as Map<String, dynamic>;
+                    final dist = _getDistanceFromUser(d);
+                    return GestureDetector(
+                      onTap:
+                          () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => ProductDetails(product: product),
+                              builder: (_) => ProductDetails(product: docs[i]),
                             ),
-                          );
-                        },
-                        child: Card(
-                          elevation: 3,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                      child: Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (d['imageUrl'] != null)
                               ClipRRect(
                                 borderRadius: const BorderRadius.vertical(
                                   top: Radius.circular(12),
                                 ),
-                                child:
-                                    data['imageUrl'] != null
-                                        ? Image.network(
-                                          data['imageUrl'],
-                                          height: 120,
-                                          width: double.infinity,
-                                          fit: BoxFit.cover,
-                                        )
-                                        : Container(
-                                          height: 120,
-                                          width: double.infinity,
-                                          color: Colors.grey[200],
-                                          child: const Icon(
-                                            Icons.image_not_supported,
-                                            size: 40,
-                                          ),
-                                        ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      data['title'] ?? 'No Title',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${data['price']?.toStringAsFixed(2) ?? '0.00'} €',
-                                      style: const TextStyle(
-                                        color: Colors.green,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      data['category'] ?? '',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    if (distance != null)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          top: 6.0,
-                                        ),
-                                        child: Text(
-                                          '${distance.toStringAsFixed(1)} km away',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.blueGrey,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
+                                child: Image.network(
+                                  d['imageUrl'],
+                                  height: 120,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
                                 ),
                               ),
-                            ],
-                          ),
+                            Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    d['title'] ?? '',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    '${(d['price'] ?? 0).toStringAsFixed(2)} €',
+                                    style: const TextStyle(color: Colors.green),
+                                  ),
+                                  if (dist != null)
+                                    Text(
+                                      '${dist.toStringAsFixed(1)} km away',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.blueGrey,
+                                      ),
+                                    ),
+                                  SizedBox(height: 20),
+                                  Text(d['category'] ?? ''),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
           ),
         ],
       ),
+    );
+  }
+
+  double? _getDistanceFromUser(Map<String, dynamic> data) {
+    if (_currentPosition == null) return null;
+    return _calculateDistanceKm(
+      _currentPosition!.latitude,
+      _currentPosition!.longitude,
+      data['latitude'],
+      data['longitude'],
     );
   }
 }

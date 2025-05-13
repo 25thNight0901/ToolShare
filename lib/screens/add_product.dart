@@ -29,8 +29,9 @@ class _AddProductState extends State<AddProduct> {
   String? _selectedCategory;
   double? _latitude;
   double? _longitude;
-  bool _isAvailable = true;
   bool _isLoading = false;
+  DateTimeRange? _availabilityRange;
+  bool _neverAvailable = false;
 
   final List<String> _categories = [
     'Kitchen Appliances',
@@ -43,6 +44,16 @@ class _AddProductState extends State<AddProduct> {
   ];
 
   final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    final today = DateTime.now();
+    _availabilityRange = DateTimeRange(
+      start: today,
+      end: today.add(const Duration(days: 7)),
+    );
+  }
 
   Future<void> _pickImage() async {
     final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
@@ -90,7 +101,7 @@ class _AddProductState extends State<AddProduct> {
         });
       }
     } catch (e) {
-      print("Error in geocoding; $e");
+      print("Error in geocoding: $e");
     }
   }
 
@@ -122,12 +133,8 @@ class _AddProductState extends State<AddProduct> {
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Product saved successfully!'),
-              duration: Duration(seconds: 2),
-            ),
+            const SnackBar(content: Text('Product saved successfully!')),
           );
-
           Navigator.pushNamedAndRemoveUntil(
             context,
             '/dashboard',
@@ -168,15 +175,13 @@ class _AddProductState extends State<AddProduct> {
 
   Future<String> _uploadProductImage() async {
     final imageId = const Uuid().v4();
-    final fileExtension =
-        _image!.path.contains('.') ? _image!.path.split('.').last : 'jpg';
+    final fileExtension = _image!.path.split('.').last;
     final ref = FirebaseStorage.instance
         .ref()
         .child('product_images')
         .child('$imageId.$fileExtension');
     await ref.putFile(_image!);
-    final imageUrl = await ref.getDownloadURL();
-    return imageUrl;
+    return await ref.getDownloadURL();
   }
 
   Future<void> _saveProductToFirestore(
@@ -196,108 +201,146 @@ class _AddProductState extends State<AddProduct> {
       'latitude': _latitude,
       'longitude': _longitude,
       'createdAt': Timestamp.now(),
-      'isAvailable': _isAvailable,
+      'availableFrom':
+          _neverAvailable
+              ? null
+              : Timestamp.fromDate(_availabilityRange!.start),
+      'availableTo':
+          _neverAvailable ? null : Timestamp.fromDate(_availabilityRange!.end),
+      'neverAvailable': _neverAvailable,
+      'reservedFrom': null,
+      'reservedTo': null,
       "userEmail": user?.email,
     });
   }
 
   void _showErrorSnackBar(String message) {
-    setState(() {
-      _isLoading = false;
-    });
-
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
-    if (context.mounted) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/dashboard',
-        (route) => false,
-      );
-    }
+  String _formatDate(DateTime d) {
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildAvailabilityPicker() {
+    return IgnorePointer(
+      ignoring: _neverAvailable,
+      child: Opacity(
+        opacity: _neverAvailable ? 0.5 : 1,
+        child: ListTile(
+          title: Text(
+            'Available from: ${_formatDate(_availabilityRange!.start)}\n'
+            'Available to:   ${_formatDate(_availabilityRange!.end)}',
+          ),
+          trailing: const Icon(Icons.calendar_today),
+          onTap: () async {
+            final picked = await showDateRangePicker(
+              context: context,
+              firstDate: DateTime.now(),
+              lastDate: DateTime.now().add(const Duration(days: 365)),
+              initialDateRange: _availabilityRange,
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: ColorScheme.light(
+                      primary:
+                          Colors.blueAccent, // header background & selected day
+                      onPrimary: Colors.white, // selected day text
+                      surface: Colors.blue.shade50, // dialog background
+                      onSurface: Colors.black, // default days text
+                    ),
+                    datePickerTheme: DatePickerThemeData(
+                      rangeSelectionBackgroundColor: Colors.blueAccent
+                          .withOpacity(0.2),
+                      rangeSelectionOverlayColor: MaterialStateProperty.all(
+                        Colors.blueAccent.withOpacity(0.1),
+                      ),
+                    ),
+                  ),
+                  child: child!,
+                );
+              },
+            );
+            if (picked != null) {
+              setState(() => _availabilityRange = picked);
+            }
+          },
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Stack(
-      children: [
-        Align(
-          alignment: Alignment.topCenter,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  const SizedBox(height: 20),
-                  _buildImagePicker(),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    _productTitleController,
-                    'Product Title',
-                    screenWidth,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildTextField(
-                    _descriptionController,
-                    'Description',
-                    screenWidth,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildTextField(
-                    _priceController,
-                    'Price (€)',
-                    screenWidth,
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildCategoryDropdown(screenWidth),
-                  const SizedBox(height: 20),
-                  _buildLocationOption(),
-                  const SizedBox(height: 20),
-                  _buildAddressFields(screenWidth),
-                  const SizedBox(height: 20),
-                  Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Checkbox(
-                          value: _isAvailable,
-                          onChanged: (value) {
-                            setState(() {
-                              _isAvailable = value ?? true;
-                            });
-                          },
-                        ),
-                        const Text('Available for rental'),
-                      ],
+    return Scaffold(
+      appBar: AppBar(title: const Text('Add Product')),
+      body: Stack(
+        children: [
+          Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 20),
+                    _buildImagePicker(),
+                    const SizedBox(height: 20),
+                    _buildTextField(
+                      _productTitleController,
+                      'Product Title',
+                      screenWidth,
                     ),
-                  ),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _submit,
-                    child:
-                        _isLoading
-                            ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
+                    const SizedBox(height: 10),
+                    _buildTextField(
+                      _descriptionController,
+                      'Description',
+                      screenWidth,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildTextField(
+                      _priceController,
+                      'Price (€)',
+                      screenWidth,
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildCategoryDropdown(screenWidth),
+                    const SizedBox(height: 20),
+                    _buildLocationOption(),
+                    const SizedBox(height: 20),
+                    _buildAddressFields(screenWidth),
+                    const SizedBox(height: 20),
+                    _buildAvailabilityPicker(),
+                    _buildNeverAvailableToggle(),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _isLoading ? null : _submit,
+                      child:
+                          _isLoading
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation(
+                                    Colors.white,
+                                  ),
                                 ),
-                              ),
-                            )
-                            : const Text('Save Product'),
-                  ),
-                ],
+                              )
+                              : const Text('Save Product'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -337,7 +380,7 @@ class _AddProductState extends State<AddProduct> {
     TextInputType? keyboardType,
   }) {
     return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: 500),
+      constraints: const BoxConstraints(maxWidth: 500),
       child: SizedBox(
         width: screenWidth * 0.7,
         child: TextField(
@@ -347,24 +390,17 @@ class _AddProductState extends State<AddProduct> {
             labelText: labelText,
             filled: true,
             fillColor: Colors.white,
-            // Modified border for the TextField
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(
-                8.0,
-              ), // Ensures rounded corners
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(
-                8.0,
-              ), // Keeps rounded border even when focused
-              borderSide: BorderSide(color: Colors.blue, width: 2),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(
-                8.0,
-              ), // Ensures rounded corners when enabled
-              borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.blue, width: 2),
             ),
           ),
         ),
@@ -374,34 +410,32 @@ class _AddProductState extends State<AddProduct> {
 
   Widget _buildCategoryDropdown(double screenWidth) {
     return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: 500),
+      constraints: const BoxConstraints(maxWidth: 500),
       child: SizedBox(
         width: screenWidth * 0.7,
         child: DropdownButtonFormField<String>(
           decoration: InputDecoration(
             labelText: 'Category',
-            labelStyle: TextStyle(color: Colors.grey),
             filled: true,
             fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+            ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.0),
+              borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.0),
+              borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: Colors.blue, width: 2),
             ),
           ),
           value: _selectedCategory,
           items:
-              _categories
-                  .map(
-                    (category) => DropdownMenuItem(
-                      value: category,
-                      child: Text(category),
-                    ),
-                  )
-                  .toList(),
+              _categories.map((category) {
+                return DropdownMenuItem(value: category, child: Text(category));
+              }).toList(),
           onChanged: (value) => setState(() => _selectedCategory = value),
         ),
       ),
@@ -415,6 +449,7 @@ class _AddProductState extends State<AddProduct> {
           child: RadioListTile<bool>(
             title: const Text('Current Location'),
             value: true,
+            activeColor: Colors.blueAccent,
             groupValue: _useCurrentLocation,
             onChanged: (val) => setState(() => _useCurrentLocation = val!),
           ),
@@ -423,6 +458,7 @@ class _AddProductState extends State<AddProduct> {
           child: RadioListTile<bool>(
             title: const Text('Choose Address'),
             value: false,
+            activeColor: Colors.blueAccent,
             groupValue: _useCurrentLocation,
             onChanged: (val) => setState(() => _useCurrentLocation = val!),
           ),
@@ -446,5 +482,15 @@ class _AddProductState extends State<AddProduct> {
       );
     }
     return const SizedBox.shrink();
+  }
+
+  Widget _buildNeverAvailableToggle() {
+    return SwitchListTile(
+      title: const Text('Never available'),
+      value: _neverAvailable,
+      activeColor: Colors.blueAccent,
+      onChanged: (v) => setState(() => _neverAvailable = v),
+      subtitle: const Text('This item will not appear in the listing.'),
+    );
   }
 }

@@ -12,14 +12,6 @@ class ProductDetails extends StatefulWidget {
 }
 
 class _ProductDetailsState extends State<ProductDetails> {
-  void _showReservationModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => const ReservationBottomSheet(),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final data = widget.product.data() as Map<String, dynamic>;
@@ -37,7 +29,7 @@ class _ProductDetailsState extends State<ProductDetails> {
                 child: Image.network(
                   data['imageUrl'],
                   width: double.infinity,
-                  height: 200,
+                  height: 500,
                   fit: BoxFit.cover,
                 ),
               ),
@@ -54,10 +46,26 @@ class _ProductDetailsState extends State<ProductDetails> {
             const SizedBox(height: 12),
             Text('Category: ${data['category'] ?? 'Unknown'}'),
             Text('Price: ${data['price']?.toStringAsFixed(2) ?? '0.00'} €'),
+            const SizedBox(height: 8),
+            Text(
+              'Posted by: ${data['userEmail'] ?? 'Unavailable'}',
+              style: TextStyle(color: Colors.grey[700]),
+            ),
             const SizedBox(height: 20),
             Center(
               child: ElevatedButton(
-                onPressed: _showReservationModal,
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    builder:
+                        (_) => ReservationBottomSheet(
+                          productRef: widget.product.reference,
+                          title: data['title'],
+                          pricePerDay: data['price'] ?? 0.0,
+                        ),
+                  );
+                },
                 child: const Text('Reserve'),
               ),
             ),
