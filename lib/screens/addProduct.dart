@@ -15,7 +15,7 @@ class AddProduct extends StatefulWidget {
 }
 
 class _AddProductState extends State<AddProduct> {
-  final _productTitelController = TextEditingController();
+  final _productTitleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
   final _streetController = TextEditingController();
@@ -41,17 +41,6 @@ class _AddProductState extends State<AddProduct> {
 
   final ImagePicker _picker = ImagePicker();
 
-  Future<bool> _checkLocationPermission() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    return permission == LocationPermission.whileInUse ||
-        permission == LocationPermission.always;
-  }
-
   Future<void> _pickImage() async {
     final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
@@ -68,51 +57,90 @@ class _AddProductState extends State<AddProduct> {
   }
 
   Future<void> _getCurrentLocation() async {
-    final permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      await Geolocator.requestPermission();
+    if (await _checkLocationPermission()) {
+      final position = await Geolocator.getCurrentPosition();
+      setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+      });
     }
+  }
 
-    final position = await Geolocator.getCurrentPosition();
-    _latitude = position.latitude;
-    _longitude = position.longitude;
+  Future<bool> _checkLocationPermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    return permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always;
   }
 
   Future<void> _getLocationFromAddress() async {
-    final fullAdress =
-        "${_streetController.text},${_streetNrController.text}, ${_postcodeController.text}, ${_cityController.text}";
+    final fullAddress =
+        "${_streetController.text}, ${_streetNrController.text}, ${_postcodeController.text}, ${_cityController.text}";
     try {
-      List<Location> locations = await locationFromAddress(fullAdress);
+      final locations = await locationFromAddress(fullAddress);
       if (locations.isNotEmpty) {
-        _latitude = locations.first.latitude;
-        _longitude = locations.first.longitude;
+        setState(() {
+          _latitude = locations.first.latitude;
+          _longitude = locations.first.longitude;
+        });
       }
     } catch (e) {
       print("Error in geocoding; $e");
     }
   }
 
-  void _submit() async {
-    print("Submit knop ingedrukt");
-    final productTitel = _productTitelController.text.trim();
+  Future<void> _submit() async {
+    final productTitle = _productTitleController.text.trim();
     final description = _descriptionController.text.trim();
     final priceText = _priceController.text.trim();
     final price = double.tryParse(priceText);
 
-    if (productTitel.isEmpty ||
+    if (_isFormValid(productTitle, description, price)) {
+      if (_useCurrentLocation) {
+        await _getCurrentLocation();
+      } else {
+        await _getLocationFromAddress();
+      }
+
+      try {
+        final imageUrl = await _uploadProductImage();
+        await _saveProductToFirestore(
+          productTitle,
+          description,
+          price,
+          imageUrl,
+        );
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Product saved successfully!'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/dashboard',
+            (route) => false,
+          );
+        }
+      } catch (e) {
+        _showErrorSnackBar(e.toString());
+      }
+    }
+  }
+
+  bool _isFormValid(String title, String description, double? price) {
+    if (title.isEmpty ||
         description.isEmpty ||
         price == null ||
         price <= 0 ||
         _image == null) {
-      Navigator.of(context).pop();
-      Future.delayed(const Duration(milliseconds: 100), () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please fill in all the fields and add an image.'),
-          ),
-        );
-      });
-      return;
+      _showErrorSnackBar('Please fill in all the fields and add an image.');
+      return false;
     }
 
     if (!_useCurrentLocation &&
@@ -120,61 +148,55 @@ class _AddProductState extends State<AddProduct> {
             _streetNrController.text.isEmpty ||
             _postcodeController.text.isEmpty ||
             _cityController.text.isEmpty)) {
-      Navigator.of(context).pop();
-      Future.delayed(const Duration(milliseconds: 100), () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please fill in the full address.')),
-        );
-      });
-      return;
+      _showErrorSnackBar('Please fill in the full address.');
+      return false;
     }
 
-    if (_useCurrentLocation) {
-      await _getCurrentLocation();
-      print('latitude:$_latitude, longitude:$_longitude');
-    } else {
-      await _getLocationFromAddress();
-      print('latitude:$_latitude, longitude:$_longitude');
-    }
-    try {
-      print('uploading image');
-      final imageId = const Uuid().v4();
-      final fileExtension =
-          _image!.path.contains('.') ? _image!.path.split('.').last : 'jpg';
-      print('image: $imageId.$fileExtension');
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('product_images')
-          .child('$imageId.$fileExtension');
-      final uploadTask = await ref.putFile(_image!);
-      final imageUrl = await ref.getDownloadURL();
-      print('image uploaded: $imageUrl');
+    return true;
+  }
 
-      await FirebaseFirestore.instance.collection('products').add({
-        'title': productTitel,
-        'description': description,
-        'price': price,
-        'category': _selectedCategory,
-        'imageUrl': imageUrl,
-        'latitude': _latitude,
-        'longitude': _longitude,
-        'createdAt': Timestamp.now(),
-      });
+  Future<String> _uploadProductImage() async {
+    final imageId = const Uuid().v4();
+    final fileExtension =
+        _image!.path.contains('.') ? _image!.path.split('.').last : 'jpg';
+    final ref = FirebaseStorage.instance
+        .ref()
+        .child('product_images')
+        .child('$imageId.$fileExtension');
+    await ref.putFile(_image!);
+    final imageUrl = await ref.getDownloadURL();
+    return imageUrl;
+  }
 
-      print('Product opgeslagen');
+  Future<void> _saveProductToFirestore(
+    String title,
+    String description,
+    double? price,
+    String imageUrl,
+  ) async {
+    await FirebaseFirestore.instance.collection('products').add({
+      'title': title,
+      'description': description,
+      'price': price,
+      'category': _selectedCategory,
+      'imageUrl': imageUrl,
+      'latitude': _latitude,
+      'longitude': _longitude,
+      'createdAt': Timestamp.now(),
+    });
+  }
 
-      Navigator.pop(context);
-    } catch (e) {
-      print('Error uploading: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error uploading: $e')));
-    }
-    print('submitted');
+  void _showErrorSnackBar(String message) {
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Stack(
       children: [
         Align(
@@ -183,162 +205,34 @@ class _AddProductState extends State<AddProduct> {
             padding: const EdgeInsets.all(20),
             child: SingleChildScrollView(
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Add Product',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
                   const SizedBox(height: 20),
-                  Stack(
-                    alignment: Alignment.topRight,
-                    children: [
-                      GestureDetector(
-                        onTap: _pickImage,
-                        child: CircleAvatar(
-                          radius: 60,
-                          backgroundColor: Colors.grey[300],
-                          backgroundImage:
-                              _image != null ? FileImage(_image!) : null,
-                          child:
-                              _image == null
-                                  ? const Icon(
-                                    Icons.camera_alt,
-                                    size: 30,
-                                    color: Colors.black54,
-                                  )
-                                  : null,
-                        ),
-                      ),
-                      if (_image != null)
-                        IconButton(
-                          onPressed: _removeImage,
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                        ),
-                    ],
-                  ),
+                  _buildImagePicker(),
                   const SizedBox(height: 20),
-                  TextField(
-                    controller: _productTitelController,
-                    decoration: const InputDecoration(
-                      labelText: 'Product Title',
-                      filled: true,
-                      border: OutlineInputBorder(),
-                    ),
+                  _buildTextField(
+                    _productTitleController,
+                    'Product Title',
+                    screenWidth,
                   ),
                   const SizedBox(height: 10),
-                  TextField(
-                    controller: _descriptionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Description',
-                      filled: true,
-                      border: OutlineInputBorder(),
-                    ),
+                  _buildTextField(
+                    _descriptionController,
+                    'Description',
+                    screenWidth,
                   ),
                   const SizedBox(height: 10),
-                  TextField(
-                    controller: _priceController,
+                  _buildTextField(
+                    _priceController,
+                    'Price (€)',
+                    screenWidth,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Price (€)',
-                      filled: true,
-                      border: OutlineInputBorder(),
-                    ),
                   ),
                   const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Category',
-                      filled: true,
-                      border: OutlineInputBorder(),
-                    ),
-                    value: _selectedCategory,
-                    items:
-                        _categories.map((category) {
-                          return DropdownMenuItem(
-                            value: category,
-                            child: Text(category),
-                          );
-                        }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedCategory = value!;
-                      });
-                    },
-                  ),
+                  _buildCategoryDropdown(screenWidth),
                   const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: RadioListTile<bool>(
-                          title: const Text('Current Location'),
-                          value: true,
-                          groupValue: _useCurrentLocation,
-                          onChanged:
-                              (val) =>
-                                  setState(() => _useCurrentLocation = val!),
-                        ),
-                      ),
-                      Expanded(
-                        child: RadioListTile<bool>(
-                          title: const Text('Choose Address'),
-                          value: false,
-                          groupValue: _useCurrentLocation,
-                          onChanged:
-                              (val) =>
-                                  setState(() => _useCurrentLocation = val!),
-                        ),
-                      ),
-                    ],
-                  ),
+                  _buildLocationOption(),
                   const SizedBox(height: 20),
-                  if (!_useCurrentLocation) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: TextField(
-                            controller: _streetController,
-                            decoration: const InputDecoration(
-                              labelText: 'Street Name',
-                              filled: true,
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Expanded(
-                          flex: 1,
-                          child: TextField(
-                            controller: _streetNrController,
-                            decoration: const InputDecoration(
-                              labelText: 'Street Number',
-                              filled: true,
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _postcodeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Postcode',
-                        filled: true,
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _cityController,
-                      decoration: const InputDecoration(
-                        labelText: 'City',
-                        filled: true,
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ],
+                  _buildAddressFields(screenWidth),
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: _submit,
@@ -349,17 +243,150 @@ class _AddProductState extends State<AddProduct> {
             ),
           ),
         ),
-        Positioned(
-          top: 10,
-          right: 10,
-          child: IconButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            icon: const Icon(Icons.close),
+      ],
+    );
+  }
+
+  Widget _buildImagePicker() {
+    return Stack(
+      alignment: Alignment.topRight,
+      children: [
+        GestureDetector(
+          onTap: _pickImage,
+          child: CircleAvatar(
+            radius: 60,
+            backgroundColor: Colors.grey[300],
+            backgroundImage: _image != null ? FileImage(_image!) : null,
+            child:
+                _image == null
+                    ? const Icon(
+                      Icons.camera_alt,
+                      size: 30,
+                      color: Colors.black54,
+                    )
+                    : null,
+          ),
+        ),
+        if (_image != null)
+          IconButton(
+            onPressed: _removeImage,
+            icon: const Icon(Icons.delete, color: Colors.red),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String labelText,
+    double screenWidth, {
+    TextInputType? keyboardType,
+  }) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: 500),
+      child: SizedBox(
+        width: screenWidth * 0.7,
+        child: TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          decoration: InputDecoration(
+            labelText: labelText,
+            filled: true,
+            fillColor: Colors.white,
+            // Modified border for the TextField
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(
+                8.0,
+              ), // Ensures rounded corners
+              borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(
+                8.0,
+              ), // Keeps rounded border even when focused
+              borderSide: BorderSide(color: Colors.blue, width: 2),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(
+                8.0,
+              ), // Ensures rounded corners when enabled
+              borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryDropdown(double screenWidth) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: 500),
+      child: SizedBox(
+        width: screenWidth * 0.7,
+        child: DropdownButtonFormField<String>(
+          decoration: InputDecoration(
+            labelText: 'Category',
+            labelStyle: TextStyle(color: Colors.grey),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8.0),
+              borderSide: BorderSide(color: Colors.grey, width: 1),
+            ),
+          ),
+          value: _selectedCategory,
+          items:
+              _categories
+                  .map(
+                    (category) => DropdownMenuItem(
+                      value: category,
+                      child: Text(category),
+                    ),
+                  )
+                  .toList(),
+          onChanged: (value) => setState(() => _selectedCategory = value),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationOption() {
+    return Row(
+      children: [
+        Expanded(
+          child: RadioListTile<bool>(
+            title: const Text('Current Location'),
+            value: true,
+            groupValue: _useCurrentLocation,
+            onChanged: (val) => setState(() => _useCurrentLocation = val!),
+          ),
+        ),
+        Expanded(
+          child: RadioListTile<bool>(
+            title: const Text('Choose Address'),
+            value: false,
+            groupValue: _useCurrentLocation,
+            onChanged: (val) => setState(() => _useCurrentLocation = val!),
           ),
         ),
       ],
     );
+  }
+
+  Widget _buildAddressFields(double screenWidth) {
+    if (!_useCurrentLocation) {
+      return Column(
+        children: [
+          _buildTextField(_streetController, 'Street Name', screenWidth),
+          const SizedBox(height: 10),
+          _buildTextField(_streetNrController, 'Street Number', screenWidth),
+          const SizedBox(height: 10),
+          _buildTextField(_postcodeController, 'Postcode', screenWidth),
+          const SizedBox(height: 10),
+          _buildTextField(_cityController, 'City', screenWidth),
+        ],
+      );
+    }
+    return const SizedBox.shrink();
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:toolshare/screens/addProduct.dart';
+import 'package:toolshare/screens/home_dashboard.dart';
+import 'package:toolshare/screens/profile.dart';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -11,24 +13,16 @@ class Dashboard extends StatefulWidget {
 class _DashboardState extends State<Dashboard> {
   int _selectedIndex = 0;
 
-  void _openAddProductForm(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => const AddProduct(),
-    );
-  }
+  final List<Widget> _screens = [
+    const HomeDashboard(),
+    const AddProduct(),
+    const Profile(),
+  ];
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
-    if (index == 2) {
-      _openAddProductForm(context);
-    } else {
-      // You can handle navigation logic here
-      // For example: Navigator.pushNamed(context, '/home');
-    }
   }
 
   @override
@@ -39,12 +33,7 @@ class _DashboardState extends State<Dashboard> {
         centerTitle: true,
         automaticallyImplyLeading: false,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Container(
-          // add search and list of products in here
-        ),
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -56,11 +45,6 @@ class _DashboardState extends State<Dashboard> {
             icon: Icon(Icons.home),
             label: 'Home',
             tooltip: 'Go to Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Search',
-            tooltip: 'Search product',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.add_circle_outline),

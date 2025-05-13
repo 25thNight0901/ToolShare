@@ -3,7 +3,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:toolshare/screens/dashboard.dart';
 import 'package:toolshare/screens/home.dart';
 import 'package:toolshare/screens/login.dart';
-import 'package:toolshare/screens/addProduct.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -29,7 +28,6 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const Home(),
         '/login': (context) => const Login(),
         '/dashboard': (context) => const Dashboard(),
-        '/addProduct': (context) => const AddProduct(),
       },
     );
   }
