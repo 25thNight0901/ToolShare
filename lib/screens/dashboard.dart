@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:toolshare/screens/add_product.dart';
-import 'package:toolshare/screens/product-list.dart';
+import 'package:toolshare/screens/product-Map.dart';
 import 'package:toolshare/screens/profile.dart';
 
 class Dashboard extends StatefulWidget {
@@ -14,7 +14,7 @@ class _DashboardState extends State<Dashboard> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
-    const ProductList(),
+    const ProductMap(),
     const AddProduct(),
     const Profile(),
   ];
