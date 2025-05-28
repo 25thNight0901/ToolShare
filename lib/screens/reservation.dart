@@ -127,7 +127,7 @@ class _ReservationBottomSheetState extends State<ReservationBottomSheet> {
           ),
           const SizedBox(height: 20),
           Text(
-            'Total: ${_totalPrice.toStringAsFixed(2)} € (${_totalDays} day${_totalDays > 1 ? 's' : ''})',
+            'Total: ${_totalPrice.toStringAsFixed(2)} € ($_totalDays day${_totalDays > 1 ? 's' : ''})',
             style: const TextStyle(fontSize: 16),
           ),
           const SizedBox(height: 16),

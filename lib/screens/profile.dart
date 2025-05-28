@@ -108,8 +108,7 @@ class _ProfileState extends State<Profile> {
   Future<void> _addMoney() async {
     final User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final String? uid = user.uid;
-      if (uid == null) return;
+      final String uid = user.uid;
 
       final querySnapshot =
           await FirebaseFirestore.instance
@@ -213,7 +212,7 @@ class _ProfileState extends State<Profile> {
         });
       } else {
         final doc = querySnapshot.docs.first;
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
 
         final bool isChanged =
             data['latitude'] != _latitude ||

@@ -108,7 +108,7 @@ class _AddProductState extends State<AddProduct> {
 
           if (querySnapshot.docs.isNotEmpty) {
             final doc = querySnapshot.docs.first;
-            final data = doc.data() as Map<String, dynamic>;
+            final data = doc.data();
             _latitude = data['latitude'];
             _longitude = data['longitude'];
           }
@@ -239,7 +239,7 @@ class _AddProductState extends State<AddProduct> {
                     datePickerTheme: DatePickerThemeData(
                       rangeSelectionBackgroundColor: Colors.blueAccent
                           .withOpacity(0.2),
-                      rangeSelectionOverlayColor: MaterialStateProperty.all(
+                      rangeSelectionOverlayColor: WidgetStateProperty.all(
                         Colors.blueAccent.withOpacity(0.1),
                       ),
                     ),

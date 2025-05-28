@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:toolshare/screens/add_product.dart';
 import 'package:toolshare/screens/product-Map.dart';
+import 'package:toolshare/screens/product_list.dart';
 import 'package:toolshare/screens/profile.dart';
 
 class Dashboard extends StatefulWidget {
@@ -16,6 +17,7 @@ class _DashboardState extends State<Dashboard> {
   final List<Widget> _screens = [
     const ProductMap(),
     const AddProduct(),
+    const ProductList(),
     const Profile(),
   ];
 
@@ -50,6 +52,11 @@ class _DashboardState extends State<Dashboard> {
             icon: Icon(Icons.add_circle_outline),
             label: 'Add',
             tooltip: 'Add product',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.inventory),
+            label: 'Product',
+            tooltip: 'View products',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
