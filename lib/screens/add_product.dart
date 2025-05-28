@@ -192,8 +192,6 @@ class _AddProductState extends State<AddProduct> {
       'availableTo':
           _neverAvailable ? null : Timestamp.fromDate(_availabilityRange!.end),
       'neverAvailable': _neverAvailable,
-      'reservedFrom': null,
-      'reservedTo': null,
       'userEmail': user?.email,
       'uid': user?.uid,
     });
