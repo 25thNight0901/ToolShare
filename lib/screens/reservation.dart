@@ -211,15 +211,40 @@ class _ReservationBottomSheetState extends State<ReservationBottomSheet> {
     }
 
     try {
-      await FirebaseFirestore.instance.collection('reservations').add({
+      final userId = FirebaseAuth.instance.currentUser!.uid;
+      final batch = FirebaseFirestore.instance.batch();
+
+      final reservationRef =
+          FirebaseFirestore.instance.collection('reservations').doc();
+      batch.set(reservationRef, {
         'productId': widget.productRef.id,
         'reservedFrom': _selectedRange!.start,
         'reservedTo': _selectedRange!.end,
         'totalDays': _totalDays,
         'totalPrice': _totalPrice,
         'timestamp': FieldValue.serverTimestamp(),
-        'userId': FirebaseAuth.instance.currentUser!.uid,
+        'userId': userId,
       });
+
+      final balanceQuery =
+          await FirebaseFirestore.instance
+              .collection('balances')
+              .where('uid', isEqualTo: userId)
+              .limit(1)
+              .get();
+
+      if (balanceQuery.docs.isNotEmpty) {
+        final balanceDocRef = balanceQuery.docs.first.reference;
+        final newBalance = _balance - _totalPrice;
+        batch.update(balanceDocRef, {'balance': newBalance});
+        setState(() {
+          _balance = newBalance;
+        });
+      } else {
+        throw Exception('Balance document not found');
+      }
+
+      await batch.commit();
 
       if (context.mounted) {
         Navigator.pop(context);
