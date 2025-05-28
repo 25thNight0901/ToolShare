@@ -214,6 +214,88 @@ class _ProductListState extends State<ProductList> {
   }
 
   Widget _buildReservationList() {
-    return Text("Te");
+    return StreamBuilder<QuerySnapshot>(
+      stream:
+          FirebaseFirestore.instance
+              .collection('reservations')
+              .where('userId', isEqualTo: _currentUserId)
+              .snapshots(),
+      builder: (ctx, snap) {
+        if (snap.hasError)
+          return const Center(child: Text('Error loading reservations.'));
+        if (!snap.hasData)
+          return const Center(child: CircularProgressIndicator());
+
+        final reservations = snap.data!.docs;
+
+        if (reservations.isEmpty) {
+          return const Center(child: Text('No reservations found.'));
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: reservations.length,
+          itemBuilder: (ctx, i) {
+            final reservation = reservations[i];
+            final data = reservation.data() as Map<String, dynamic>;
+            final productId = data['productId'] as String?;
+
+            if (productId == null) return const SizedBox.shrink();
+
+            return FutureBuilder<DocumentSnapshot>(
+              future:
+                  FirebaseFirestore.instance
+                      .collection('products')
+                      .doc(productId)
+                      .get(),
+              builder: (ctx, productSnap) {
+                if (!productSnap.hasData) return const SizedBox.shrink();
+                final product = productSnap.data!;
+                if (!product.exists) return const SizedBox.shrink();
+
+                final pData = product.data() as Map<String, dynamic>;
+
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 8,
+                    horizontal: 12,
+                  ),
+                  leading:
+                      pData['imageUrl'] != null
+                          ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              pData['imageUrl'],
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                          : const Icon(Icons.image_not_supported),
+                  title: Text(pData['title'] ?? 'No Title'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${(pData['price'] ?? 0).toStringAsFixed(2)} €'),
+                      if (data['reservedFrom'] != null &&
+                          data['reservedTo'] != null)
+                        Text(
+                          'From: ${_formatDate(data['reservedFrom'])} - To: ${_formatDate(data['reservedTo'])}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _formatDate(Timestamp ts) {
+    final date = ts.toDate();
+    return '${date.day}/${date.month}/${date.year}';
   }
 }
