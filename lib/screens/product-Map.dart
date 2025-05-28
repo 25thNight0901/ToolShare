@@ -82,6 +82,8 @@ class _ProductMapState extends State<ProductMap> {
             .map((doc) {
               final data = doc.data();
 
+              if (data['neverAvailable'] == true) return null;
+
               if (_selectedCategory != null &&
                   data['category'] != _selectedCategory) {
                 return null;
