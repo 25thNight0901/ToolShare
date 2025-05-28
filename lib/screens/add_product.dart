@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -19,10 +18,6 @@ class _AddProductState extends State<AddProduct> {
   final _productTitleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
-  final _streetController = TextEditingController();
-  final _streetNrController = TextEditingController();
-  final _postcodeController = TextEditingController();
-  final _cityController = TextEditingController();
 
   bool _useCurrentLocation = true;
   File? _image;
@@ -89,22 +84,6 @@ class _AddProductState extends State<AddProduct> {
         permission == LocationPermission.always;
   }
 
-  Future<void> _getLocationFromAddress() async {
-    final fullAddress =
-        "${_streetController.text}, ${_streetNrController.text}, ${_postcodeController.text}, ${_cityController.text}";
-    try {
-      final locations = await locationFromAddress(fullAddress);
-      if (locations.isNotEmpty) {
-        setState(() {
-          _latitude = locations.first.latitude;
-          _longitude = locations.first.longitude;
-        });
-      }
-    } catch (e) {
-      print("Error in geocoding: $e");
-    }
-  }
-
   Future<void> _submit() async {
     setState(() {
       _isLoading = true;
@@ -119,7 +98,21 @@ class _AddProductState extends State<AddProduct> {
       if (_useCurrentLocation) {
         await _getCurrentLocation();
       } else {
-        await _getLocationFromAddress();
+        final User? user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          final querySnapshot =
+              await FirebaseFirestore.instance
+                  .collection('addresses')
+                  .where('uid', isEqualTo: user.uid)
+                  .get();
+
+          if (querySnapshot.docs.isNotEmpty) {
+            final doc = querySnapshot.docs.first;
+            final data = doc.data() as Map<String, dynamic>;
+            _latitude = data['latitude'];
+            _longitude = data['longitude'];
+          }
+        }
       }
 
       try {
@@ -158,15 +151,6 @@ class _AddProductState extends State<AddProduct> {
         price <= 0 ||
         _image == null) {
       _showErrorSnackBar('Please fill in all the fields and add an image.');
-      return false;
-    }
-
-    if (!_useCurrentLocation &&
-        (_streetController.text.isEmpty ||
-            _streetNrController.text.isEmpty ||
-            _postcodeController.text.isEmpty ||
-            _cityController.text.isEmpty)) {
-      _showErrorSnackBar('Please fill in the full address.');
       return false;
     }
 
@@ -210,7 +194,8 @@ class _AddProductState extends State<AddProduct> {
       'neverAvailable': _neverAvailable,
       'reservedFrom': null,
       'reservedTo': null,
-      "userEmail": user?.email,
+      'userEmail': user?.email,
+      'uid': user?.uid,
     });
   }
 
@@ -312,8 +297,6 @@ class _AddProductState extends State<AddProduct> {
                     _buildCategoryDropdown(screenWidth),
                     const SizedBox(height: 20),
                     _buildLocationOption(),
-                    const SizedBox(height: 20),
-                    _buildAddressFields(screenWidth),
                     const SizedBox(height: 20),
                     _buildAvailabilityPicker(),
                     _buildNeverAvailableToggle(),
@@ -456,7 +439,7 @@ class _AddProductState extends State<AddProduct> {
         ),
         Expanded(
           child: RadioListTile<bool>(
-            title: const Text('Choose Address'),
+            title: const Text('Home Address'),
             value: false,
             activeColor: Colors.blueAccent,
             groupValue: _useCurrentLocation,
@@ -465,23 +448,6 @@ class _AddProductState extends State<AddProduct> {
         ),
       ],
     );
-  }
-
-  Widget _buildAddressFields(double screenWidth) {
-    if (!_useCurrentLocation) {
-      return Column(
-        children: [
-          _buildTextField(_streetController, 'Street Name', screenWidth),
-          const SizedBox(height: 10),
-          _buildTextField(_streetNrController, 'Street Number', screenWidth),
-          const SizedBox(height: 10),
-          _buildTextField(_postcodeController, 'Postcode', screenWidth),
-          const SizedBox(height: 10),
-          _buildTextField(_cityController, 'City', screenWidth),
-        ],
-      );
-    }
-    return const SizedBox.shrink();
   }
 
   Widget _buildNeverAvailableToggle() {

@@ -19,6 +19,17 @@ class _ProductMapState extends State<ProductMap> {
   int _radiusIndex = 0;
   List<Marker> _products = [];
   final MapController _mapcontroller = MapController();
+  String? _selectedCategory;
+  final List<String> _categories = [
+    'Kitchen Appliances',
+    'Cleaning Appliances',
+    'Tools & DIY',
+    'Laundry & Ironing',
+    'Garden Equipment',
+    'Heating & Cooling',
+    'Other',
+  ];
+  double _rotation = 0.0;
 
   double getZoomlevel(double radius) {
     switch (radius.toInt()) {
@@ -69,10 +80,16 @@ class _ProductMapState extends State<ProductMap> {
         snapshot.docs
             .map((doc) {
               final data = doc.data();
+
+              if (_selectedCategory != null &&
+                  data['category'] != _selectedCategory) {
+                return null;
+              }
+
               final lat = data['latitude'];
               final lon = data['longitude'];
-
               final productLocation = LatLng(lat, lon);
+
               final isWithinRadius =
                   distance.as(LengthUnit.Meter, _center, productLocation) <=
                   _radius;
@@ -106,6 +123,20 @@ class _ProductMapState extends State<ProductMap> {
     setState(() {
       _products = markers;
     });
+  }
+
+  void _resetMap() {
+    final zoom = getZoomlevel(_radius);
+    _rotation = 0.0;
+    _mapcontroller.rotate(_rotation);
+    _mapcontroller.move(_center, zoom);
+    setState(() {});
+  }
+
+  void _pointToNorth() {
+    _rotation = 0.0;
+    _mapcontroller.rotate(_rotation);
+    setState(() {});
   }
 
   @override
@@ -143,7 +174,11 @@ class _ProductMapState extends State<ProductMap> {
           Expanded(
             child: FlutterMap(
               mapController: _mapcontroller,
-              options: MapOptions(center: _center, zoom: getZoomlevel(_radius)),
+              options: MapOptions(
+                center: _center,
+                zoom: getZoomlevel(_radius),
+                rotation: _rotation,
+              ),
               children: [
                 TileLayer(
                   urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -162,18 +197,114 @@ class _ProductMapState extends State<ProductMap> {
                   ],
                 ),
                 MarkerLayer(markers: _products),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _resetMap,
+                        icon: Icon(Icons.my_location),
+                        label: Text("Reset"),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: Size(140, 40),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: _pointToNorth,
+                        icon: Icon(Icons.explore),
+                        label: Text("North"),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: Size(140, 40),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton.icon(
-              icon: Icon(Icons.search),
-              label: Text("Search"),
-              onPressed: _searchProducts,
-              style: ElevatedButton.styleFrom(
-                minimumSize: Size(double.infinity, 48),
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedCategory,
+                    decoration: InputDecoration(
+                      labelText: 'Category',
+                      labelStyle: TextStyle(
+                        color: Colors.blueGrey.shade700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Colors.grey.shade400,
+                          width: 1,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(width: 1),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.blueAccent),
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                    ),
+                    items:
+                        _categories.map((category) {
+                          return DropdownMenuItem(
+                            value: category,
+                            child: Text(
+                              category,
+                              style: TextStyle(
+                                color: Colors.grey.shade800,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCategory = value;
+                      });
+                    },
+                    isExpanded: true,
+                    dropdownColor: Colors.grey.shade50,
+                    hint: Text(
+                      'Select Category',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 1,
+                  child: ElevatedButton.icon(
+                    icon: Icon(Icons.search),
+                    label: Text("Search"),
+                    onPressed: _searchProducts,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: Size(double.infinity, 48),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
