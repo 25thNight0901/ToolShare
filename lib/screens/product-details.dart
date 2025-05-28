@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:toolshare/screens/reservation.dart';
+import 'package:toolshare/screens/reservation.dart'; // ReservationBottomSheet location
 
 class ProductDetails extends StatefulWidget {
   final QueryDocumentSnapshot product;
@@ -16,42 +16,45 @@ class _ProductDetailsState extends State<ProductDetails> {
   Widget build(BuildContext context) {
     final data = widget.product.data() as Map<String, dynamic>;
 
+    final String title = data['title'] ?? 'Product Details';
+    final String? imageUrl = data['imageUrl'];
+    final String description = data['description'] ?? '';
+    final String category = data['category'] ?? 'Unknown';
+    final double price =
+        (data['price'] is num) ? (data['price'] as num).toDouble() : 0.0;
+    final String userEmail = data['userEmail'] ?? 'Unavailable';
+
     return Scaffold(
-      appBar: AppBar(title: Text(data['title'] ?? 'Product Details')),
+      appBar: AppBar(title: Text(title)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (data['imageUrl'] != null)
+            if (imageUrl != null && imageUrl.isNotEmpty)
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: Image.network(
-                  data['imageUrl'],
+                  imageUrl,
                   width: double.infinity,
-                  height: 500,
+                  height: 300,
                   fit: BoxFit.cover,
                 ),
               ),
             const SizedBox(height: 16),
-            Text(
-              data['title'] ?? '',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
+            Text(title, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
-            Text(
-              data['description'] ?? '',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            Text(description, style: Theme.of(context).textTheme.bodyMedium),
             const SizedBox(height: 12),
-            Text('Category: ${data['category'] ?? 'Unknown'}'),
-            Text('Price: ${data['price']?.toStringAsFixed(2) ?? '0.00'} €'),
+            Text('Category: $category'),
+            const SizedBox(height: 4),
+            Text('Price: ${price.toStringAsFixed(2)} € per day'),
             const SizedBox(height: 8),
             Text(
-              'Posted by: ${data['userEmail'] ?? 'Unavailable'}',
+              'Posted by: $userEmail',
               style: TextStyle(color: Colors.grey[700]),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             Center(
               child: ElevatedButton(
                 onPressed: () {
@@ -61,8 +64,8 @@ class _ProductDetailsState extends State<ProductDetails> {
                     builder:
                         (_) => ReservationBottomSheet(
                           productRef: widget.product.reference,
-                          title: data['title'],
-                          pricePerDay: data['price'] ?? 0.0,
+                          title: title,
+                          pricePerDay: price,
                         ),
                   );
                 },
