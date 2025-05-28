@@ -47,6 +47,7 @@ class _ProductMapState extends State<ProductMap> {
     }
   }
 
+  @override
   void initState() {
     super.initState();
     _getCurrentLocation();
